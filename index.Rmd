@@ -1,0 +1,410 @@
+---
+title: <FONT COLOR="lightgreen"> EVOLUCIÓN Y EFECTO DEL USO DE LAS FUENTES ENERGÉTICAS </FONT>
+subtitle: "Dairo Quintero (daiquin@alumni.uv.es)" #- pon tú nombre ahí para q aparezca más grande q el de la UV
+author: "Universitat de València"
+date: "Diciembre de 2020 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    #css: "./assets/my_css_file.css"
+    theme: dark
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library (tidylog)
+#install.packages("tidylog")
+library(klippy)  #- remotes::install_github("rlesur/klippy")
+library(knitr)
+library(rio)
+library(readxl)
+library(ggplot2)
+library(ggridges)
+#install.packages("ggridges")
+#devtools::install_github("LKremer/ggpointdensity")
+library(viridisLite)
+library(ggpointdensity)
+library(gganimate)
+library(plotly)
+library(hms)
+#install.packages('DT')
+library(DT)
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 7/9, out.width = "60%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+<hr class="linea-black">
+
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2020-2021. El repo del trabajo está [aquí](https://github.com/Daiquin/trabajo_BigData){target="_blank"}. La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-20-21-web/07-trabajos.html){target="_blank"}.
+
+<!-- El párrafo de arriba has de dejarlo casi igual, 
+        solo HAS de SUSTITUIR las 2 veces que aparece "perezp44" por tu usuario de Github-->
+
+<hr class="linea-red">
+
+# <FONT COLOR="lightgreen"> 1. Introducción</FONT>
+
+El **objetivo de este análisis** es resaltar/esclarecer la evolución y efectos de las distintas fuentes de energía que se han utilizado a nivel munidal a lo largo de los últimos 30 años y el impacto medioambiental de estas. La motivación de este trabajo surge de la necesidad de conocer y comprender la situación actual y las posibilidades futuras en cuanto a energías renovables que nos permitan fundamentar nuestra economía de una  manera más eficiente y respetuosa con el medioambiente. 
+las variables que se tendrán en cuenta son: evolución de emisiones de co2 por causa de la generación de energía eléctrica, evolución del uso de energías renovables y no renovables, acceso de la población a la eléctricidad.   
+
+
+
+
+# <FONT COLOR="lightgreen"> 2. Datos</FONT>
+
+
+la principal fuente de datos ha sido la web del banco mundial, a partir de la cual he descargado documentos excel en donde se incluyen variables relacionadas con el medio ambiente en el apartado Indicadores del desarrollo mundial (IDM), los cuales constituyen la principal colección de indicadores del desarrollo del Banco Mundial, compilados a partir de fuentes internacionales reconocidas oficialmente. La serie presenta datos actuales y precisos disponibles sobre el desarrollo mundial.
+además algunos de estos datos han sido obtenidos de la Agencia Internacional de la Energía (AIE) a tráves de estadísticas propias y de la Organización para la Cooperación y el Desarrollo Económico (OCDE). 
+
+
+link a la página del
+[banco de datos del Banco Mundial](https://databank.bancomundial.org/home.aspx)
+
+Link a la página de la [AIE](https://www.iea.org/data-and-statistics?country=WORLD&fuel=Energy%20supply&indicator=TPESbySource)
+
+
+![logotipo banco mundial](./imagenes/logobm.jpg)
+
+![logotipo AIE](./imagenes/iea.jpg)
+
+
+
+
+```{r datos, include=FALSE}
+
+#cargamos los datos y creamos los data frames que vamos a usar 
+df_prod_renov <- read_excel("./datos/Producción de energía eléctrica renovable (% de la producción total de electricidad).xls")
+
+df_prod_rexhidro <-  read_excel("./datos/producción de eléctricidad a partir de fuentes erenovables, excluida la hidroeléctrica (% del total).xls")
+
+df_renov_exclhidro <- read_excel("./datos/Producción de electricidad a partir de fuentes renovables, excluida la hidroeléctrica (kilovatio-hora).xls")
+
+df_prod_norenov <- read_excel("./datos/Producción de electricidad a partir de fuentes de petróleo, gas y carbón (% del total).xls")
+
+df_acceso_electr <-  read_excel("./datos/acceso a la electricidad.xls")
+
+emi_co2 <- read_excel("./datos/emisiones de co2 originadas por la producción de electricidad y calefacción, total (% del total de la quema de combustible) .xls")
+
+font_nuclear <- read_excel("./datos/producción de electricidad a partir de fuentes nucleares (% del total).xls")
+
+```
+
+
+
+## <FONT COLOR="lightgreen"> 2.1. Procesando los datos</FONT>
+
+
+
+Se ha realizado una limpieza y organización de los datos.
+para ello he eliminado las columnas y filas que no tenian relevancia o no disponian de datos (NA´s), después los he reorganizado utilizando las funciones de dplyr (pivot_longer) y he renombrado algunas variables para facilitar el trabajo posterior (rename).
+
+
+```{r include=FALSE}
+
+#Prod_eléctrica_renovable (% del total de electricidad)
+
+#eliminamios las columnas sin datos. 
+df_prod_renov <- df_prod_renov[ , -c(4:34 , 61:65)]
+
+#renombramos y reordenamos variables en columnas 
+
+df_prod_renov <- df_prod_renov %>% rename(country = `Country Name`, cod = `Country Code`)
+
+df_prod_renov <- df_prod_renov %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "renovables") %>% mutate( `Indicator Name` = NULL)
+df_prod_renov <- transform(df_prod_renov, year = as.numeric(year)) %>% drop_na()
+
+
+
+
+#hago lo mismo con los otros df
+
+#Prod_electricidad_renovables exc_hidroeléctrica (kilovatio-hora)
+
+df_renov_exclhidro <- df_renov_exclhidro [ , -c(4:34 ,61:65) ] 
+
+df_renov_exclhidro <- df_renov_exclhidro %>% rename(country = `Country Name`, cod = `Country Code`)
+
+df_renov_exclhidro <- df_renov_exclhidro %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "renov_exhidro_kh") %>% mutate( `Indicator Name` = NULL)
+
+df_renov_exclhidro <- transform(df_renov_exclhidro, year = as.numeric(year)) %>% drop_na()
+
+
+#Producción de electricidad a partir de fuentes renovables, excluida la hidroeléctrica (% del total)
+df_prod_rexhidro <- df_prod_rexhidro [ , -c(4:34 ,61:65) ] 
+
+df_prod_rexhidro <- df_prod_rexhidro %>% rename(country = `Country Name`, cod = `Country Code`)
+
+df_prod_rexhidro <- df_prod_rexhidro %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "renovables_exhidro") %>% mutate( `Indicator Name` = NULL)
+df_prod_rexhidro <- transform(df_prod_rexhidro, year = as.numeric(year)) %>% drop_na()
+
+
+
+#Producción de electricidad a partir de fuentes de petróleo, gas y carbón (% del total)
+
+df_prod_norenov <- df_prod_norenov [ , -c(4:34 ,61:65) ] 
+
+df_prod_norenov <-df_prod_norenov %>% rename(country = `Country Name`, cod = `Country Code`)
+
+df_prod_norenov<- df_prod_norenov %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "no_renovables") %>% mutate( `Indicator Name` = NULL)
+
+df_prod_norenov <- transform(df_prod_norenov, year = as.numeric(year)) %>% drop_na()
+
+
+#acceso a la ecectricidad % de la población 
+df_acceso_electr <- df_acceso_electr [ , -c(4:34 ,61:65) ] 
+
+df_acceso_electr <-df_acceso_electr %>% rename(country = `Country Name`, cod = `Country Code`)
+
+df_acceso_electr <- df_acceso_electr %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "Acceso_elec") %>% mutate( `Indicator Name` = NULL)
+df_acceso_electr <- transform(df_acceso_electr, year = as.numeric(year)) %>% drop_na()
+
+#Emisiones de CO2 originadas por la produccin de electricidad y calefaccin, total (% del total de la quema de combustible)
+emi_co2 <- emi_co2[ , -c(4:34 ,61:65) ] 
+
+emi_co2 <- emi_co2 %>% rename(country = `Country Name`, cod = `Country Code`)
+
+emi_co2<- emi_co2 %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "CO2_elec") %>% mutate( `Indicator Name` = NULL)
+emi_co2 <- transform(emi_co2 , year = as.numeric(year)) %>% drop_na()
+
+#Producción de electricidad a partir de fuentes nucleares (% del total)
+
+font_nuclear <- font_nuclear[ , -c(4:34 ,61:65) ] 
+
+font_nuclear <- font_nuclear %>% rename(country = `Country Name`, cod = `Country Code`)
+
+font_nuclear <- font_nuclear %>% pivot_longer(cols = 4:29 , names_to= "year", values_to= "nuclear_porc") %>% mutate( `Indicator Name` = NULL)
+font_nuclear <- transform(font_nuclear , year = as.numeric(year)) %>% drop_na()
+
+```
+
+
+
+# <FONT COLOR="lightgreen"> 3. Gráficos y tablas </FONT> 
+
+
+
+## <FONT COLOR="lightgreen"> 3.1 Emisiones de CO2 </FONT> 
+
+
+
+>El dióxido de carbono o CO2 es uno de los principales gases de efecto invernadero junto con el óxido nitroso (N2O) y el metano (CH4). Es un gas imprescindible para la vida en el planeta, pero con la llegada y auge de la Revolución Industrial su concentración en la atmósfera empezó a dispararse y la tendencia no se ha detenido desde entonces. Hace ya 200 años, al inicio del proceso de industrialización, la atmósfera contabilizaba aproximadamente 250 partes de dióxido de carbono por millón (ppm). En 2019, se registró la cifra récord de 415,39 ppm. A finales de los años 90, el Protocolo de Kioto ya manifestó la necesidad de luchar contra esta situación pero las cifras actuales nos exigen actuar con urgencia. 
+
+estracto texto del articulo sobre la transición energética de la web [REd eléctrica de ESpaña](https://www.ree.es/es/sala-de-prensa/actualidad/especial/2020/01/la-transicion-energetica-se-apunta-otro-tanto-caen-las-emisiones-a-un-minimo-historico).
+
+
+
+A continuación, se expone un gráfico que muestra la evolución de las emisiones mundiales de Co2 a consecuencia de la producción energética a lo largo de los últimos 30 años. 
+En ella podemos observar como desde 1990 estas emisiones han tenido un crecimiento exponencial llegando a constituir apróximadamente el 50% del total de emisiones mundiales en 2011. 
+
+
+
+
+```{r graficos, echo=FALSE}
+
+#gráfico emisiones co2 mundiales 
+
+co2mundial <- emi_co2 %>% filter(country == "Mundo")
+ggplot(co2mundial , aes(year , CO2_elec )) +  geom_line(color="darkorange" , size = 1.5) +geom_point(color= "red" , size= 4) + labs(title = "Emisiones totales de CO2 originadas por la producción
+de electricidad y calefacción. ",
+       subtitle = "(% del total de la quema de combustible)",
+       caption = "Fuente: Estadísticas AIE",
+       x = "año",
+       y = "% de emisiones de Co2") +theme_dark() + theme(text = element_text(face = "bold")) + theme(panel.background = element_rect(fill = "lightgreen", colour = "black", linetype = "longdash", size = 3.5))
+
+```
+
+
+
+## <FONT COLOR="lightgreen"> 3.2 Población con acceso a la eléctricidad  </FONT>
+
+
+**tabla dinámica **
+En esta tabla dinámica se pueden realizar búsquedas de los pocertajes de población con acceso a la eléctricidad para cada país y año, desde 1990 hasta 2015.
+
+
+```{r echo=FALSE}
+#tabla con los datos del dataframe  % de población con acceso a la electricidad
+
+acceso <- df_acceso_electr %>% filter(year  %in% c(1990:2015)) %>% transform(as.double(Acceso_elec)) %>% arrange(desc(Acceso_elec))
+
+
+datatable(head(acceso ) , colnames = c("País" , "Código" , "Año" , "% acceso a eléctricidad")) 
+```
+
+
+
+En este apartado se comparan dos gráficos, uno con datos de 1990 y otro de 2015, en ellos se aprecia el número de países que brindan acceso a la eléctricidad a un mismo porcentaje de su población, (por ejemplo, en 1990, 80 países brindaban acceso a la eléctricidad al 100% de su población). 
+
+se puede observar como todas las cantidades han aumentado para el año 2015, tanto las proporciones de población en cada país con acceso a la electricidad , como el número total de países que brinda acceso a la misma.
+
+En concreto, en en 1990, solo 80 países brindaban acceso a la eléctricidad al 100% de su población, mientras que en 2015, unos 139 países ya daban acceso al 100%, algo que se puede considerar un aumento importante teniendo en cuenta la evolución historica del uso de la eléctricidad. 
+
+En los gráficos también se refleja el aumento de páises que están empezando a brindar acceso a la eléctricidad, pues si se observa el número de países que brindaban acceso a porcentajes reducidos de su población en 2015, se puede apreciar una gran diferencia con respecto a 1990. 
+
+En conclusión podemos afirmar que el acceso de la población a la electricidad está en aumento y es muy probable que así lo siga haciendo. 
+
+
+
+```{r echo=FALSE}
+ 
+
+acceso_90 <- df_acceso_electr %>% filter (year == 1990)
+
+p <- ggplot(acceso_90 , aes(Acceso_elec))  + geom_histogram(bins = 10, color = "black", fill = "springgreen") + labs(title = "Población con acceso a la eléctricidad  ",
+       subtitle = "(% del total en 1990)",
+       caption = "Fuente: Banco Mundial 
+  base de datos de Energía Sostenible para Todos (SE4ALL)." , x = "% población", y = "número de países" ) 
+
+ggplotly(p)
+
+```
+
+
+
+
+```{r echo=FALSE}
+acceso_015 <- df_acceso_electr %>% filter(year== 2015)
+
+pl <- ggplot(acceso_015 , aes(Acceso_elec))  + geom_histogram(bins = 10, color = "black", fill = "red") + labs(title = "Población con acceso a la eléctricidad  ",
+       subtitle = "(% del total en 2015)",
+       caption = "Fuente: Banco Mundial 
+  base de datos de Energía Sostenible para Todos (SE4ALL)." , x = "% población", y = "número de países")
+
+ggplotly(pl)
+```
+
+
+
+
+
+
+
+## <FONT COLOR="lightgreen"> 3.3 Producción de energía eléctrica renovable y no renovable  </FONT>
+
+
+
+**entendiendo por fuentes de eléctricidad no renovable a los insumos que se utilizan para generar electricidad como son: El petróleo, el cual se refiere al crudo y a los derivados. El gas, se refiere al gas natural pero excluye los líquidos de gas natural. El carbón, se refiere a todos los tipos de carbón y combustibles derivados. La turba también se incluye en esta categoría.En cuanto a las energías renovables estos datos recogen todo tipo de energías renovables, entre ellas la solar, eólica, hidraulica, etc.** 
+
+
+
+A continuación se muestran gráficos que representan la evolución mundial del agregado de la producción de estas fuentes de energía. En ellas podemos observar como el uso de las energías no renovables, si bien han tenido una tendencia creciente en la década 1996-2006, llegando a constituir el 67% del total de la producción mundial en 2006, se puede observar también que esta tendencia, es decir su uso, se ha transformado en descendente en los últimos años, reduciéndose a un 65%, esto se puede explicar, o entender, observando la evolución de la producción de energía por medio de fuentes renovables, la cual, como se puede observar en el gráfico, ha tenido un aumento exponencial en la última década, pasando de constituir un 17% de la producción total mundial en 2002, a conseguir un 23% en 2015. 
+
+
+
+
+```{r echo=FALSE}
+
+
+no_renova <- df_prod_norenov %>% filter(country == "Mundo")
+renov <- df_prod_renov %>% filter(country == "Mundo")
+
+ren_ynore <- left_join(no_renova , renov)
+
+
+plo <- ggplot(ren_ynore, aes(year , no_renovables) ) +  geom_line(color= "black", size = 1.5) + geom_point(color = "yellow"  ,size = 3) + labs(title = "Producción mundial de electricidad a partir de fuentes 
+de petróleo, gas y carbón ",
+       subtitle = "(% del total)",
+       caption = "Fuente: Agencia Internacional de la Energía (AIE )
+  (Estadísticas de la AIE  OCDE/AIE)" , x = "año", y = "% de la producción total") + theme_dark() + theme(text = element_text(face = "bold")) + theme(panel.background = element_rect(fill = "darkred", colour = "black", size = 1.5))  
+
+ggplotly(plo)
+
+```
+
+
+
+
+```{r echo=FALSE}
+
+ggplot(ren_ynore, aes(year , renovables) )  + geom_line(color= "azure2" , size = 1.5) + geom_point(size = 3, color= "darkblue") + labs(title = "Producción mundial de energía eléctrica renovable ",
+       subtitle = "(% de la producción total de electricidad)",
+       caption = "Fuente: Agencia Internacional de la Energía (AIE )
+  (Estadísticas de la AIE  OCDE/AIE)" , x = "año", y = "% de la producción total") + theme_dark() + theme(text = element_text(face = "bold")) + theme(panel.background = element_rect(fill = "lightblue", colour = "black", size = 1.5))
+
+
+```
+
+
+
+
+
+# <FONT COLOR="lightgreen"> 4. Conclusión </FONT>
+
+Si bien el uso de fuentes de energía renovables aún es bastante reducido en comparación con la producción de energía a partir de fuentes no renovables, teniendo en cuenta el aumento constante del acceso a la eléctricidad y el interés creciente de la población en la conservación del medioambiente y la sostenibilidad debido a un mayor conocimiento de la evolución e impacto de las emisiones de Co2, se puede esperar (o almenos así lo espero yo) que la tendencia positiva del uso de fuentes renovables se mantenga o incluso que aumente en los años venideros, ya sea por un mejor aprovechamiento de las fuentes renovables conocidas, o por el desarrollo de nuevas fuentes más sostenibles y eficientes. 
+
+
+
+A continuación un trailer de un documental relacionado con el tema que puede resultar interesante. 
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Elf0RFBhr8I?autoplay=0&fs=1&iv_load_policy=3&showinfo=1&rel=0&cc_load_policy=0&start=0&end=0&" frameborder="0" allowfullscreen></iframe>
+
+
+# <FONT COLOR="lightgreen"> 5. Trabajos en los que me he basado</FONT>
+
+
+[AVANZA CO2. Cambio Climático. Emisiones en el mundo](http://www.minasyenergia.upm.es/investigacion/co2/cambioClimatico.EWorld.htm)
+
+[REd eléctrica de ESpaña](https://www.ree.es/es/sala-de-prensa/actualidad/especial/2020/01/la-transicion-energetica-se-apunta-otro-tanto-caen-las-emisiones-a-un-minimo-historico).
+
+
+
+
+# <FONT COLOR="lightgreen"> 6. Bibliografía </FONT>
+
+
+[DATA TABLES DT](https://rstudio.github.io/DT/)
+
+[SHEAT SHEET DE DPLYR](file:///C:/Users/dairo/OneDrive/Documentos/DATOS%20DEL%20ASUS/GECO/(20-21)%20%20primer%20cuatri/programaci%C3%B3n%20big%20data/data-transformation.pdf)
+
+[SHEAT SHEET DE GGPLOT](file:///C:/Users/dairo/OneDrive/Documentos/DATOS%20DEL%20ASUS/GECO/(20-21)%20%20primer%20cuatri/programaci%C3%B3n%20big%20data/data-visualization-2.1.pdf)
+
+[PALETA DE COLORES R](https://pkg.garrickadenbuie.com/r-colors-css/)
+
+
+
+
+
+
+
+
+
+
+**Nadie llega tan lejos si no es para seguir**
+![future](./imagenes/sost.jpg)
+
+
+
+
+
+
+
